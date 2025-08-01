@@ -12,8 +12,15 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Логируем все обновления
+bot.on('message', (msg) => {
+  console.log('📨 Получено сообщение:', msg.text, 'от', msg.from.username);
+});
+
 // Только команда /start
 bot.onText(/\/start/, async (msg) => {
+  console.log('🎯 Команда /start получена от:', msg.from.username);
+  
   const chatId = msg.chat.id;
   const userId = msg.from.id;
   const username = msg.from.username || msg.from.first_name;
@@ -35,10 +42,15 @@ bot.onText(/\/start/, async (msg) => {
     ]]
   };
   
-  await bot.sendMessage(chatId, welcomeMessage, {
-    reply_markup: keyboard,
-    parse_mode: 'HTML'
-  });
+  try {
+    await bot.sendMessage(chatId, welcomeMessage, {
+      reply_markup: keyboard,
+      parse_mode: 'HTML'
+    });
+    console.log('✅ Сообщение отправлено успешно');
+  } catch (error) {
+    console.error('❌ Ошибка отправки:', error.message);
+  }
 });
 
 // Принудительно завершаем при конфликте
@@ -49,6 +61,15 @@ bot.on('polling_error', (error) => {
   }
 });
 
+// Логируем успешное подключение
+bot.on('polling_error', (error) => {
+  console.error('❌ Polling error:', error.message);
+});
+
+bot.on('error', (error) => {
+  console.error('❌ Bot error:', error.message);
+});
+
 // Health check
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Bot is running' });
@@ -57,4 +78,5 @@ app.get('/', (req, res) => {
 // Запуск
 app.listen(PORT, () => {
   console.log(`Bot started on port ${PORT}`);
+  console.log('🤖 Бот готов к работе!');
 }); 

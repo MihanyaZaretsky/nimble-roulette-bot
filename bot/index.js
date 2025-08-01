@@ -5,16 +5,23 @@ const express = require('express');
 const token = '7335736665:AAHG3rBQQ_zjE6qourTYqHaTvuKDnczztgM';
 console.log('🔑 Токен бота:', token);
 
-// Простой бот
-const bot = new TelegramBot(token, { polling: true });
-
 // Express сервер
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.use(express.json());
+
+// Бот с webhook
+const bot = new TelegramBot(token, { webHook: { port: PORT } });
+
+// Устанавливаем webhook
+const url = 'https://nimble-roulette-bot-qkve.onrender.com';
+bot.setWebHook(`${url}/bot${token}`);
+
 // Тестовое сообщение при запуске
 bot.getMe().then((botInfo) => {
   console.log('✅ Бот подключен:', botInfo.username);
+  console.log('🌐 Webhook установлен на:', url);
 }).catch((error) => {
   console.error('❌ Ошибка подключения бота:', error.message);
 });
@@ -55,12 +62,10 @@ bot.onText(/\/start/, async (msg) => {
   }
 });
 
-// Принудительно завершаем при конфликте
-bot.on('polling_error', (error) => {
-  if (error.code === 'ETELEGRAM' && error.response.body.error_code === 409) {
-    console.log('⚠️ Конфликт экземпляров. Завершаем процесс...');
-    process.exit(0);
-  }
+// Webhook endpoint
+app.post(`/bot${token}`, (req, res) => {
+  bot.handleUpdate(req.body);
+  res.sendStatus(200);
 });
 
 // Health check

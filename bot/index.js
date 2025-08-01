@@ -4,25 +4,52 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
-// Глобальная переменная для отслеживания запущенного экземпляра
-if (global.botInstance) {
-  console.log('⚠️ Бот уже запущен в этом процессе');
-  process.exit(0);
-}
+// Создаём файл-блокировку для предотвращения дублирования
+const fs = require('fs');
+const path = require('path');
+const lockFile = path.join(__dirname, 'bot.lock');
 
-// Проверка на уже запущенный экземпляр через переменную окружения
-if (process.env.NODE_ENV === 'production') {
-  const instanceId = process.env.BOT_INSTANCE || 'main';
-  if (global.botInstances && global.botInstances.has(instanceId)) {
-    console.log('⚠️ Бот уже запущен в другом экземпляре');
+// Проверяем, не запущен ли уже бот
+if (fs.existsSync(lockFile)) {
+  const lockData = JSON.parse(fs.readFileSync(lockFile, 'utf8'));
+  const now = Date.now();
+  
+  // Если файл блокировки старше 30 секунд, считаем что процесс умер
+  if (now - lockData.timestamp < 30000) {
+    console.log('⚠️ Бот уже запущен в другом процессе. Завершаем...');
     process.exit(0);
   }
-  
-  if (!global.botInstances) {
-    global.botInstances = new Set();
-  }
-  global.botInstances.add(instanceId);
 }
+
+// Создаём файл блокировки
+const lockData = {
+  pid: process.pid,
+  timestamp: Date.now(),
+  instance: process.env.BOT_INSTANCE || 'main'
+};
+
+fs.writeFileSync(lockFile, JSON.stringify(lockData));
+
+// Очищаем файл блокировки при завершении
+process.on('exit', () => {
+  if (fs.existsSync(lockFile)) {
+    fs.unlinkSync(lockFile);
+  }
+});
+
+process.on('SIGINT', () => {
+  if (fs.existsSync(lockFile)) {
+    fs.unlinkSync(lockFile);
+  }
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  if (fs.existsSync(lockFile)) {
+    fs.unlinkSync(lockFile);
+  }
+  process.exit(0);
+});
 
 // Инициализация бота
 const botToken = '7335736665:AAHG3rBQQ_zjE6qourTYqHaTvuKDnczztgM';
@@ -31,16 +58,15 @@ let bot;
 try {
   bot = new TelegramBot(botToken, { 
     polling: true,
-    // Добавляем уникальный polling_id для избежания конфликтов
     polling_id: process.env.BOT_INSTANCE || 'main'
   });
-  
-  // Отмечаем что бот запущен
-  global.botInstance = true;
   
   console.log('🤖 Telegram бот инициализирован с токеном');
 } catch (error) {
   console.log('❌ Ошибка инициализации бота:', error.message);
+  if (fs.existsSync(lockFile)) {
+    fs.unlinkSync(lockFile);
+  }
   process.exit(1);
 }
 
@@ -230,6 +256,15 @@ app.get('/api/user/:userId/stats', (req, res) => {
   res.json(userSession);
 });
 
+// Health check endpoint для Render
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Nimble Roulette Bot is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Обработка ошибок
 bot.on('error', (error) => {
   console.error('Ошибка бота:', error);
@@ -240,6 +275,9 @@ bot.on('polling_error', (error) => {
     console.log('⚠️ Другой экземпляр бота уже запущен. Завершаем этот процесс...');
     // Принудительно завершаем процесс при конфликте
     setTimeout(() => {
+      if (fs.existsSync(lockFile)) {
+        fs.unlinkSync(lockFile);
+      }
       process.exit(0);
     }, 1000);
   } else {

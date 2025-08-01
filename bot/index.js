@@ -4,12 +4,22 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
+// Проверка на уже запущенный экземпляр
+if (process.env.NODE_ENV === 'production' && process.env.BOT_INSTANCE) {
+  console.log('⚠️ Бот уже запущен в другом экземпляре');
+  process.exit(0);
+}
+
 // Инициализация бота
 const botToken = '7335736665:AAHG3rBQQ_zjE6qourTYqHaTvuKDnczztgM';
 let bot;
 
 try {
-  bot = new TelegramBot(botToken, { polling: true });
+  bot = new TelegramBot(botToken, { 
+    polling: true,
+    // Добавляем уникальный polling_id для избежания конфликтов
+    polling_id: process.env.BOT_INSTANCE || 'main'
+  });
   console.log('🤖 Telegram бот инициализирован с токеном');
 } catch (error) {
   console.log('❌ Ошибка инициализации бота:', error.message);
@@ -202,19 +212,22 @@ app.get('/api/user/:userId/stats', (req, res) => {
   res.json(userSession);
 });
 
-// Запуск сервера
-app.listen(PORT, () => {
-  console.log(`🤖 Бот запущен на порту ${PORT}`);
-  console.log(`📡 API доступен по адресу: http://localhost:${PORT}`);
-});
-
 // Обработка ошибок
 bot.on('error', (error) => {
   console.error('Ошибка бота:', error);
 });
 
 bot.on('polling_error', (error) => {
-  console.error('Ошибка polling:', error);
+  if (error.code === 'ETELEGRAM' && error.response.body.error_code === 409) {
+    console.log('⚠️ Другой экземпляр бота уже запущен. Это нормально при разработке.');
+  } else {
+    console.error('Ошибка polling:', error);
+  }
 });
 
-console.log('🎰 Nimble Roulette Bot запускается...'); 
+// Запуск сервера
+app.listen(PORT, () => {
+  console.log(`🎰 Nimble Roulette Bot запускается...`);
+  console.log(`🤖 Бот запущен на порту ${PORT}`);
+  console.log(`📡 API доступен по адресу: http://localhost:${PORT}`);
+}); 

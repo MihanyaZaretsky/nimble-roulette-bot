@@ -1,0 +1,30 @@
+{
+  "name": "nimble-roulette-telegram-app",
+  "version": "1.0.0",
+  "description": "Telegram Mini App с ботом и веб-приложением для игры в рулетку",
+  "main": "index.js",
+  "scripts": {
+    "start": "node bot/index.js",
+    "dev": "nodemon bot/index.js",
+    "test": "node bot/test-bot.js",
+    "test:api": "node test-api.js",
+    "web:dev": "cd web && npm run dev",
+    "web:build": "cd web && npm run build",
+    "install:all": "npm install && cd web && npm install"
+  },
+  "keywords": ["telegram", "bot", "mini-app", "roulette", "game"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.64.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "socket.io": "^4.7.4",
+    "uuid": "^9.0.1",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+} 

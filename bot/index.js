@@ -4,53 +4,6 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
-// Создаём файл-блокировку для предотвращения дублирования
-const fs = require('fs');
-const path = require('path');
-const lockFile = path.join(__dirname, 'bot.lock');
-
-// Проверяем, не запущен ли уже бот
-if (fs.existsSync(lockFile)) {
-  const lockData = JSON.parse(fs.readFileSync(lockFile, 'utf8'));
-  const now = Date.now();
-  
-  // Если файл блокировки старше 30 секунд, считаем что процесс умер
-  if (now - lockData.timestamp < 30000) {
-    console.log('⚠️ Бот уже запущен в другом процессе. Завершаем...');
-    process.exit(0);
-  }
-}
-
-// Создаём файл блокировки
-const lockData = {
-  pid: process.pid,
-  timestamp: Date.now(),
-  instance: process.env.BOT_INSTANCE || 'main'
-};
-
-fs.writeFileSync(lockFile, JSON.stringify(lockData));
-
-// Очищаем файл блокировки при завершении
-process.on('exit', () => {
-  if (fs.existsSync(lockFile)) {
-    fs.unlinkSync(lockFile);
-  }
-});
-
-process.on('SIGINT', () => {
-  if (fs.existsSync(lockFile)) {
-    fs.unlinkSync(lockFile);
-  }
-  process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-  if (fs.existsSync(lockFile)) {
-    fs.unlinkSync(lockFile);
-  }
-  process.exit(0);
-});
-
 // Инициализация бота
 const botToken = '7335736665:AAHG3rBQQ_zjE6qourTYqHaTvuKDnczztgM';
 let bot;
@@ -58,21 +11,20 @@ let bot;
 try {
   bot = new TelegramBot(botToken, { 
     polling: true,
-    polling_id: process.env.BOT_INSTANCE || 'main'
+    // Убираем polling_id чтобы избежать конфликтов
+    polling_timeout: 10,
+    polling_interval: 1000
   });
   
   console.log('🤖 Telegram бот инициализирован с токеном');
 } catch (error) {
   console.log('❌ Ошибка инициализации бота:', error.message);
-  if (fs.existsSync(lockFile)) {
-    fs.unlinkSync(lockFile);
-  }
   process.exit(1);
 }
 
 // Express сервер для API
 const app = express();
-const PORT = process.env.BOT_PORT || 3001;
+const PORT = process.env.PORT || 3001; // Используем PORT от Render
 
 // Middleware
 app.use(cors());
@@ -107,10 +59,15 @@ bot.onText(/\/start/, async (msg) => {
     ]]
   };
   
-  await bot.sendMessage(chatId, welcomeMessage, {
-    reply_markup: keyboard,
-    parse_mode: 'HTML'
-  });
+  try {
+    await bot.sendMessage(chatId, welcomeMessage, {
+      reply_markup: keyboard,
+      parse_mode: 'HTML'
+    });
+    console.log(`✅ Сообщение отправлено пользователю ${username}`);
+  } catch (error) {
+    console.error(`❌ Ошибка отправки сообщения:`, error.message);
+  }
 });
 
 // Обработка команды /help
@@ -143,7 +100,11 @@ bot.onText(/\/help/, async (msg) => {
 /stats - Ваша статистика
   `;
   
-  await bot.sendMessage(chatId, helpMessage, { parse_mode: 'HTML' });
+  try {
+    await bot.sendMessage(chatId, helpMessage, { parse_mode: 'HTML' });
+  } catch (error) {
+    console.error(`❌ Ошибка отправки help:`, error.message);
+  }
 });
 
 // Обработка команды /stats
@@ -165,7 +126,11 @@ bot.onText(/\/stats/, async (msg) => {
 🏆 Лучший выигрыш: ${userSession.bestWin}₽
   `;
   
-  await bot.sendMessage(chatId, statsMessage, { parse_mode: 'HTML' });
+  try {
+    await bot.sendMessage(chatId, statsMessage, { parse_mode: 'HTML' });
+  } catch (error) {
+    console.error(`❌ Ошибка отправки stats:`, error.message);
+  }
 });
 
 // API endpoint для получения данных игры
@@ -239,7 +204,11 @@ app.post('/api/game/:sessionId/complete', (req, res) => {
     ? `🎉 Поздравляем! Вы выиграли ${winnings}₽!`
     : `😔 К сожалению, вы проиграли ${gameSession.bet}₽. Попробуйте еще раз!`;
   
-  bot.sendMessage(userId, message);
+  try {
+    bot.sendMessage(userId, message);
+  } catch (error) {
+    console.error(`❌ Ошибка отправки уведомления:`, error.message);
+  }
   
   res.json({ success: true, gameSession });
 });
@@ -261,27 +230,22 @@ app.get('/', (req, res) => {
   res.json({ 
     status: 'ok', 
     message: 'Nimble Roulette Bot is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    botStatus: bot ? 'connected' : 'disconnected'
   });
 });
 
 // Обработка ошибок
 bot.on('error', (error) => {
-  console.error('Ошибка бота:', error);
+  console.error('❌ Ошибка бота:', error);
 });
 
 bot.on('polling_error', (error) => {
   if (error.code === 'ETELEGRAM' && error.response.body.error_code === 409) {
-    console.log('⚠️ Другой экземпляр бота уже запущен. Завершаем этот процесс...');
-    // Принудительно завершаем процесс при конфликте
-    setTimeout(() => {
-      if (fs.existsSync(lockFile)) {
-        fs.unlinkSync(lockFile);
-      }
-      process.exit(0);
-    }, 1000);
+    console.log('⚠️ Другой экземпляр бота уже запущен. Продолжаем работу...');
+    // Не завершаем процесс, просто логируем
   } else {
-    console.error('Ошибка polling:', error);
+    console.error('❌ Ошибка polling:', error);
   }
 });
 
@@ -290,4 +254,5 @@ app.listen(PORT, () => {
   console.log(`🎰 Nimble Roulette Bot запускается...`);
   console.log(`🤖 Бот запущен на порту ${PORT}`);
   console.log(`📡 API доступен по адресу: http://localhost:${PORT}`);
+  console.log(`✅ Бот готов к работе!`);
 }); 

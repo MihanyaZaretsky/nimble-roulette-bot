@@ -1,15 +1,28 @@
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
 
+// Проверяем токен
+const token = '7335736665:AAHG3rBQQ_zjE6qourTYqHaTvuKDnczztgM';
+console.log('🔑 Токен бота:', token);
+
 // Простой бот
-const bot = new TelegramBot('7335736665:AAHG3rBQQ_zjE6qourTYqHaTvuKDnczztgM', { polling: true });
+const bot = new TelegramBot(token, { polling: true });
 
 // Express сервер
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Тестовое сообщение при запуске
+bot.getMe().then((botInfo) => {
+  console.log('✅ Бот подключен:', botInfo.username);
+}).catch((error) => {
+  console.error('❌ Ошибка подключения бота:', error.message);
+});
+
 // Только команда /start
 bot.onText(/\/start/, async (msg) => {
+  console.log('🎯 Получена команда /start от:', msg.from.username);
+  
   const chatId = msg.chat.id;
   const userId = msg.from.id;
   const username = msg.from.username || msg.from.first_name;
@@ -31,10 +44,15 @@ bot.onText(/\/start/, async (msg) => {
     ]]
   };
   
-  await bot.sendMessage(chatId, welcomeMessage, {
-    reply_markup: keyboard,
-    parse_mode: 'HTML'
-  });
+  try {
+    await bot.sendMessage(chatId, welcomeMessage, {
+      reply_markup: keyboard,
+      parse_mode: 'HTML'
+    });
+    console.log('✅ Сообщение отправлено');
+  } catch (error) {
+    console.error('❌ Ошибка отправки:', error.message);
+  }
 });
 
 // Health check

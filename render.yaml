@@ -8,9 +8,4 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: BOT_INSTANCE
-        value: main
-      - key: BOT_PORT
-        value: 3001
-    healthCheckPath: /
     autoDeploy: true 

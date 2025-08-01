@@ -1,33 +1,26 @@
 import TelegramBot from 'node-telegram-bot-api';
 import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Конфигурация
 const config = {
   token: '7335736665:AAHG3rBQQ_zjE6qourTYqHaTvuKDnczztgM',
-  webAppUrl: process.env.WEBAPP_URL || 'https://nimble-roulette.onrender.com', // URL на Render
-  port: process.env.PORT || 3000 // Render использует переменную PORT
+  webAppUrl: process.env.WEBAPP_URL || 'https://nimble-roulette.onrender.com',
+  port: process.env.PORT || 3000
 };
 
 // Создание бота
 const bot = new TelegramBot(config.token, { polling: true });
 
-// Создание Express сервера для раздачи статики
+// Создание Express сервера только для health check
 const app = express();
 
-// Middleware для парсинга JSON
-app.use(express.json());
-
-// Раздача статических файлов из папки dist
-app.use(express.static(path.join(__dirname, 'dist')));
-
-// Маршрут для всех остальных запросов (SPA)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+// Health check для Render
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Bot is running',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Обработка команды /start
@@ -64,8 +57,9 @@ bot.onText(/\/start/, async (msg) => {
       reply_markup: keyboard,
       parse_mode: 'HTML'
     });
+    console.log(`✅ Отправлено приветствие пользователю ${username} (${chatId})`);
   } catch (error) {
-    console.error('Ошибка отправки сообщения:', error);
+    console.error('❌ Ошибка отправки сообщения:', error);
   }
 });
 
@@ -87,51 +81,22 @@ bot.onText(/\/webapp/, async (msg) => {
       reply_markup: keyboard
     });
   } catch (error) {
-    console.error('Ошибка отправки Web App:', error);
-  }
-});
-
-// Обработка текстовых сообщений
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  const text = msg.text;
-
-  // Игнорируем команды и сообщения без текста
-  if (!text || text.startsWith('/')) {
-    return;
-  }
-
-  // Обработка обычных сообщений
-  const responseMessage = `Получено ваше сообщение: "${text}"
-
-Для работы с приложением используйте команду /start или нажмите кнопку ниже:`;
-
-  const keyboard = {
-    inline_keyboard: [
-      [{
-        text: '🎰 Открыть Nimble Roulette',
-        web_app: { url: config.webAppUrl }
-      }]
-    ]
-  };
-
-  try {
-    await bot.sendMessage(chatId, responseMessage, {
-      reply_markup: keyboard
-    });
-  } catch (error) {
-    console.error('Ошибка отправки ответа:', error);
+    console.error('❌ Ошибка отправки Web App:', error);
   }
 });
 
 // Обработка ошибок бота
 bot.on('error', (error) => {
-  console.error('Ошибка бота:', error);
+  console.error('❌ Ошибка бота:', error);
 });
 
-// Обработка polling ошибок
+// Обработка polling ошибок с игнорированием 409
 bot.on('polling_error', (error) => {
-  console.error('Ошибка polling:', error);
+  if (error.code === 'ETELEGRAM' && error.response && error.response.statusCode === 409) {
+    console.log('⚠️ Конфликт экземпляров бота. Игнорируем...');
+    return;
+  }
+  console.error('❌ Ошибка polling:', error);
 });
 
 // Запуск сервера

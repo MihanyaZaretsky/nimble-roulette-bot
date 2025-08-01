@@ -1,37 +1,18 @@
 {
-  "name": "telegram-mini-app",
+  "name": "nimble-roulette-bot",
   "version": "1.0.0",
-  "description": "Telegram Mini App на React с TypeScript",
+  "description": "Telegram бот для Nimble Roulette",
   "type": "module",
+  "main": "bot.js",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
     "start": "node bot.js",
-    "bot": "node bot.js",
-    "webapp": "vite --port 3000",
-    "bot-only": "node bot-only.js",
-    "bot-silent": "node bot-silent.js"
+    "dev": "node bot.js"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.8.1",
-    "axios": "^1.3.4",
     "node-telegram-bot-api": "^0.64.0",
-    "express": "^4.18.2",
-    "cors": "^2.8.5"
+    "express": "^4.18.2"
   },
-  "devDependencies": {
-    "@types/react": "^18.0.27",
-    "@types/react-dom": "^18.0.10",
-    "@typescript-eslint/eslint-plugin": "^5.57.1",
-    "@typescript-eslint/parser": "^5.57.1",
-    "@vitejs/plugin-react": "^3.1.0",
-    "eslint": "^8.38.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.3.4",
-    "typescript": "^4.9.3",
-    "vite": "^4.1.0"
-  }
+  "keywords": ["telegram", "bot", "roulette"],
+  "author": "Your Name",
+  "license": "MIT"
 }

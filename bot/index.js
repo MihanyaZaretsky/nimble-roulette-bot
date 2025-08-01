@@ -1,28 +1,10 @@
 const TelegramBot = require('node-telegram-bot-api');
-const express = require('express');
 
-// Проверяем токен
-const token = '7335736665:AAHG3rBQQ_zjE6qourTYqHaTvuKDnczztgM';
-console.log('🔑 Токен бота:', token);
-
-// Express сервер
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-// Простой бот с polling
-const bot = new TelegramBot(token, { polling: true });
-
-// Тестовое сообщение при запуске
-bot.getMe().then((botInfo) => {
-  console.log('✅ Бот подключен:', botInfo.username);
-}).catch((error) => {
-  console.error('❌ Ошибка подключения бота:', error.message);
-});
+// Простой бот
+const bot = new TelegramBot('7335736665:AAHG3rBQQ_zjE6qourTYqHaTvuKDnczztgM', { polling: true });
 
 // Только команда /start
 bot.onText(/\/start/, async (msg) => {
-  console.log('🎯 Получена команда /start от:', msg.from.username);
-  
   const chatId = msg.chat.id;
   const userId = msg.from.id;
   const username = msg.from.username || msg.from.first_name;
@@ -44,32 +26,10 @@ bot.onText(/\/start/, async (msg) => {
     ]]
   };
   
-  try {
-    await bot.sendMessage(chatId, welcomeMessage, {
-      reply_markup: keyboard,
-      parse_mode: 'HTML'
-    });
-    console.log('✅ Сообщение отправлено');
-  } catch (error) {
-    console.error('❌ Ошибка отправки:', error.message);
-  }
+  await bot.sendMessage(chatId, welcomeMessage, {
+    reply_markup: keyboard,
+    parse_mode: 'HTML'
+  });
 });
 
-// Игнорируем ошибки polling
-bot.on('polling_error', (error) => {
-  if (error.code === 'ETELEGRAM' && error.response.body.error_code === 409) {
-    console.log('⚠️ Другой экземпляр работает. Игнорируем...');
-  } else {
-    console.log('⚠️ Polling error:', error.message);
-  }
-});
-
-// Health check
-app.get('/', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-// Запуск
-app.listen(PORT, () => {
-  console.log(`Bot started on port ${PORT}`);
-}); 
+console.log('Bot started'); 

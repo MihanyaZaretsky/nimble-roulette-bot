@@ -55,6 +55,14 @@ bot.onText(/\/start/, async (msg) => {
   }
 });
 
+// Принудительно завершаем при конфликте
+bot.on('polling_error', (error) => {
+  if (error.code === 'ETELEGRAM' && error.response.body.error_code === 409) {
+    console.log('⚠️ Конфликт экземпляров. Завершаем процесс...');
+    process.exit(0);
+  }
+});
+
 // Health check
 app.get('/', (req, res) => {
   res.json({ status: 'ok' });

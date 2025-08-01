@@ -4,10 +4,24 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
-// Проверка на уже запущенный экземпляр
-if (process.env.NODE_ENV === 'production' && process.env.BOT_INSTANCE) {
-  console.log('⚠️ Бот уже запущен в другом экземпляре');
+// Глобальная переменная для отслеживания запущенного экземпляра
+if (global.botInstance) {
+  console.log('⚠️ Бот уже запущен в этом процессе');
   process.exit(0);
+}
+
+// Проверка на уже запущенный экземпляр через переменную окружения
+if (process.env.NODE_ENV === 'production') {
+  const instanceId = process.env.BOT_INSTANCE || 'main';
+  if (global.botInstances && global.botInstances.has(instanceId)) {
+    console.log('⚠️ Бот уже запущен в другом экземпляре');
+    process.exit(0);
+  }
+  
+  if (!global.botInstances) {
+    global.botInstances = new Set();
+  }
+  global.botInstances.add(instanceId);
 }
 
 // Инициализация бота
@@ -20,6 +34,10 @@ try {
     // Добавляем уникальный polling_id для избежания конфликтов
     polling_id: process.env.BOT_INSTANCE || 'main'
   });
+  
+  // Отмечаем что бот запущен
+  global.botInstance = true;
+  
   console.log('🤖 Telegram бот инициализирован с токеном');
 } catch (error) {
   console.log('❌ Ошибка инициализации бота:', error.message);
@@ -219,7 +237,11 @@ bot.on('error', (error) => {
 
 bot.on('polling_error', (error) => {
   if (error.code === 'ETELEGRAM' && error.response.body.error_code === 409) {
-    console.log('⚠️ Другой экземпляр бота уже запущен. Это нормально при разработке.');
+    console.log('⚠️ Другой экземпляр бота уже запущен. Завершаем этот процесс...');
+    // Принудительно завершаем процесс при конфликте
+    setTimeout(() => {
+      process.exit(0);
+    }, 1000);
   } else {
     console.error('Ошибка polling:', error);
   }
